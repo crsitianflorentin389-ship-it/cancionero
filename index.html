@@ -163,6 +163,13 @@ button{font-family:inherit;cursor:pointer}
 .add-chord-btn:active{opacity:.7}
 
 .ve-add-bar{display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);flex-wrap:wrap}
+.ve-insert-row{display:flex;align-items:center;gap:4px;margin:2px 0;opacity:0;transition:opacity .15s;height:20px}
+.ve-insert-row:hover{opacity:1}
+.ve-canvas:hover .ve-insert-row{opacity:.4}
+.ve-canvas .ve-insert-row:hover{opacity:1!important}
+.ve-ins-btn{padding:1px 8px;border-radius:4px;border:1px dashed var(--border2);background:transparent;color:var(--text3);font-size:10px;cursor:pointer;white-space:nowrap}
+.ve-ins-btn:hover{background:var(--bg3);color:var(--accent);border-color:var(--accent3)}
+.ve-ins-line{flex:1;height:1px;background:var(--border);opacity:.5}
 .ve-add-bar input{flex:1;min-width:150px;padding:9px 13px;border-radius:20px;border:1px solid var(--border);background:var(--paper);font-size:14px;color:var(--text)}
 .ve-add-bar input:focus{outline:none;border-color:var(--accent3)}
 .ve-add-btn{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--paper);color:var(--text2);font-size:13px;white-space:nowrap}
@@ -655,10 +662,16 @@ function saveEdit(){
   s.lines=JSON.parse(JSON.stringify(vlines));
   save();renderList();openSong(curId);
 }
-function deleteSong(){
+async function deleteSong(){
   if(!confirm('¿Eliminar esta canción?'))return;
-  songs=songs.filter(x=>x.id!==curId);rep=rep.filter(x=>x!==curId);
+  const idToDelete=curId;
+  songs=songs.filter(x=>x.id!==idToDelete);
+  rep=rep.filter(x=>x!==idToDelete);
   save();curId=null;renderList();goScreen('list');
+  // Also delete from Supabase
+  try{
+    await sbFetch('canciones?id=eq.'+idToDelete,'DELETE');
+  }catch(e){console.warn('Error deleting from cloud:',e);}
 }
 
 // CREATE
@@ -731,9 +744,42 @@ function applyCustom(){const v=(document.getElementById('cust-inp')||{}).value||
 // CANVAS
 function moveRow(i,d){const j=i+d;if(j<0||j>=vlines.length)return;[vlines[i],vlines[j]]=[vlines[j],vlines[i]];renderCanvas()}
 
+function makeInsertRow(idx){
+  const wrap=document.createElement('div');wrap.className='ve-insert-row';
+  const line=document.createElement('div');line.className='ve-ins-line';
+  const btnSec=document.createElement('button');btnSec.className='ve-ins-btn';btnSec.textContent='＋ sección';
+  btnSec.onclick=()=>insertRowAt(idx,'sec');
+  const btnLine=document.createElement('button');btnLine.className='ve-ins-btn';btnLine.textContent='＋ línea';
+  btnLine.onclick=()=>insertRowAt(idx,'line');
+  const btnCho=document.createElement('button');btnCho.className='ve-ins-btn';btnCho.textContent='♩ acordes';
+  btnCho.onclick=()=>insertRowAt(idx,'chords');
+  const line2=document.createElement('div');line2.className='ve-ins-line';
+  wrap.appendChild(line);wrap.appendChild(btnSec);wrap.appendChild(btnLine);wrap.appendChild(btnCho);wrap.appendChild(line2);
+  return wrap;
+}
+
+function insertRowAt(idx, type){
+  if(type==='sec'){
+    const l=prompt('Sección (INTRO, ESTROFA, ESTRIBILLO, PUENTE...):','ESTROFA');
+    if(!l)return;
+    vlines.splice(idx,0,{type:'section',label:l.toUpperCase()});
+  } else if(type==='line'){
+    const t=prompt('Texto de la línea:','');
+    if(t===null)return;
+    vlines.splice(idx,0,{type:'line',words:(t.trim()||'nueva línea').split(/\s+/).map(w=>({text:w,chord:null}))});
+  } else if(type==='chords'){
+    vlines.splice(idx,0,{type:'chords',chords:[]});
+  }
+  renderCanvas();
+}
+
 function renderCanvas(){
   const cv=document.getElementById('ve-canvas');cv.innerHTML='';
   const n=vlines.length;
+
+  // Insert button at position 0 (before everything)
+  cv.appendChild(makeInsertRow(0));
+
   vlines.forEach((l,li)=>{
     const ob=document.createElement('div');ob.className='ve-order';
     const u=document.createElement('button');u.className='ve-ob';u.textContent='↑';u.disabled=li===0;u.onclick=()=>moveRow(li,-1);
@@ -781,10 +827,11 @@ function renderCanvas(){
       const x=document.createElement('button');x.className='ve-x';x.textContent='✕';x.onclick=()=>{vlines.splice(li,1);renderCanvas()};
       row.appendChild(lr);row.appendChild(x);cv.appendChild(row);
     }
+    cv.appendChild(makeInsertRow(li+1));
   });
 
   const bar=document.createElement('div');bar.className='ve-add-bar';
-  bar.innerHTML='<input type="text" id="ve-inp" placeholder="Agregar línea de letra..." onkeydown="if(event.key===\'Enter\')addLine()">'
+  bar.innerHTML='<input type="text" id="ve-inp" placeholder="Agregar línea de letra..." onkeydown="if(event.key==='Enter')addLine()">'
     +'<button class="ve-add-btn" onclick="addLine()">＋ Línea</button>'
     +'<button class="ve-add-btn sec" onclick="addSec()">＋ Sección</button>'
     +'<button class="ve-add-btn cho" onclick="addChordsRow()">♩ Intro/puente</button>';
@@ -797,6 +844,8 @@ function addLine(){
   inp.value='';renderCanvas();setTimeout(()=>{const ni=document.getElementById('ve-inp');if(ni)ni.focus()},40);
 }
 function addSec(){const l=prompt('Sección (INTRO, ESTROFA, ESTRIBILLO, PUENTE...):','ESTRIBILLO');if(l){vlines.push({type:'section',label:l.toUpperCase()});renderCanvas();}}
+function addSecAt(idx){if(idx===-1){addSec();return}insertRowAt(idx,'sec')}
+function addChordsRowAt(idx){if(idx===-1){addChordsRow();return}insertRowAt(idx,'chords')}
 function addSection(n){vlines.push({type:'section',label:n});renderCanvas()}
 function addChordsRow(){vlines.push({type:'chords',chords:[]});renderCanvas()}
 
