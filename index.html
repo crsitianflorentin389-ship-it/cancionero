@@ -831,10 +831,12 @@ function renderCanvas(){
   });
 
   const bar=document.createElement('div');bar.className='ve-add-bar';
-  bar.innerHTML='<input type="text" id="ve-inp" placeholder="Agregar línea de letra..." onkeydown="if(event.key==='Enter')addLine()">'
-    +'<button class="ve-add-btn" onclick="addLine()">＋ Línea</button>'
-    +'<button class="ve-add-btn sec" onclick="addSec()">＋ Sección</button>'
-    +'<button class="ve-add-btn cho" onclick="addChordsRow()">♩ Intro/puente</button>';
+  const veInp=document.createElement('input');veInp.type='text';veInp.id='ve-inp';veInp.placeholder='Agregar linea de letra...';
+  veInp.addEventListener('keydown',function(e){if(e.key==='Enter')addLine();});
+  const veBtn1=document.createElement('button');veBtn1.className='ve-add-btn';veBtn1.textContent='+ Linea';veBtn1.onclick=addLine;
+  const veBtn2=document.createElement('button');veBtn2.className='ve-add-btn sec';veBtn2.textContent='+ Seccion';veBtn2.onclick=addSec;
+  const veBtn3=document.createElement('button');veBtn3.className='ve-add-btn cho';veBtn3.textContent='Intro/puente';veBtn3.onclick=addChordsRow;
+  bar.appendChild(veInp);bar.appendChild(veBtn1);bar.appendChild(veBtn2);bar.appendChild(veBtn3);
   cv.appendChild(bar);
 }
 
