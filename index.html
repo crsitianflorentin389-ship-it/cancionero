@@ -506,6 +506,7 @@ const CTABS={
 };
 
 let songs=[],rep=[],curId=null,steps=0,inEdit=false,selChord=null,curCT='may',vlines=[],isNew=false;
+const deletedIds=new Set();
 
 function load(){
   try{songs=JSON.parse(localStorage.getItem('cf_s')||'[]')}catch(e){songs=[]}
@@ -665,13 +666,17 @@ function saveEdit(){
 async function deleteSong(){
   if(!confirm('¿Eliminar esta canción?'))return;
   const idToDelete=curId;
+  deletedIds.add(idToDelete);
+  // Delete from cloud FIRST, before local save triggers a sync
+  try{
+    await sbFetch('canciones?id=eq.'+encodeURIComponent(idToDelete),'DELETE');
+  }catch(e){console.warn('Error deleting from cloud:',e);}
   songs=songs.filter(x=>x.id!==idToDelete);
   rep=rep.filter(x=>x!==idToDelete);
-  save();curId=null;renderList();goScreen('list');
-  // Also delete from Supabase
-  try{
-    await sbFetch('canciones?id=eq.'+idToDelete,'DELETE');
-  }catch(e){console.warn('Error deleting from cloud:',e);}
+  // Save locally without triggering cloud sync (already deleted from cloud)
+  localStorage.setItem('cf_s',JSON.stringify(songs));
+  localStorage.setItem('cf_r',JSON.stringify(rep));
+  curId=null;renderList();renderRepScreen();goScreen('list');
 }
 
 // CREATE
@@ -1218,10 +1223,11 @@ async function syncFromCloud(){
     // Fetch songs
     const rows = await sbFetch('canciones?user_id=eq.'+encodeURIComponent(userId)+'&select=data');
     if(rows&&rows.length){
-      // Merge: cloud wins for updated songs, keep local-only songs
+      // Merge: cloud wins for updated songs, keep local-only, skip deleted
       const cloudIds = new Set(rows.map(r=>r.data.id));
-      const localOnly = songs.filter(s=>!cloudIds.has(s.id));
-      songs = [...rows.map(r=>r.data), ...localOnly];
+      const localOnly = songs.filter(s=>!cloudIds.has(s.id)&&!deletedIds.has(s.id));
+      const cloudSongs = rows.map(r=>r.data).filter(s=>!deletedIds.has(s.id));
+      songs = [...cloudSongs, ...localOnly];
     }
     // Fetch rep
     const repRows = await sbFetch('repertorio?user_id=eq.'+encodeURIComponent(userId)+'&select=ids');
