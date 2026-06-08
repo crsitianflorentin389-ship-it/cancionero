@@ -1202,8 +1202,22 @@ function startScroll(){
   const speed = parseInt(document.getElementById('scroll-speed').value||3);
   const px = 0.3 + (speed - 1) * 0.37;
   scrollInterval = setInterval(()=>{
-    const main = document.querySelector('.main');
-    if(main) main.scrollBy(0, px);
+    // Try multiple possible scroll containers
+    const containers = [
+      document.querySelector('.main'),
+      document.getElementById('scr-song'),
+      document.documentElement,
+      document.body
+    ];
+    let scrolled = false;
+    for(const el of containers){
+      if(el && el.scrollHeight > el.clientHeight){
+        el.scrollBy(0, px);
+        scrolled = true;
+        break;
+      }
+    }
+    if(!scrolled) window.scrollBy(0, px);
   }, 16);
 }
 function stopScroll(){
