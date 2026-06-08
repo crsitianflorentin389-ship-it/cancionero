@@ -264,6 +264,21 @@ button{font-family:inherit;cursor:pointer}
 .sync-dot.syncing{background:var(--accent3);animation:pulse .8s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .sync-status{display:flex;align-items:center;font-size:11px;color:var(--text3);gap:3px}
+
+/* ── AUTOSCROLL ── */
+.scroll-bar{display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.scroll-bar.visible{display:flex}
+.scroll-btn{width:36px;height:36px;border-radius:50%;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.scroll-btn.play{background:var(--accent);color:#fce8cc}
+.scroll-btn.play:active{background:var(--accent2)}
+.scroll-btn.stop{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.scroll-speed{display:flex;align-items:center;gap:6px;flex:1}
+.scroll-speed label{font-size:11px;color:var(--text3);white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
+.scroll-speed input[type=range]{flex:1;accent-color:var(--accent);height:4px}
+.scroll-speed .spd-val{font-size:12px;font-weight:700;color:var(--accent);min-width:20px;text-align:center;font-family:monospace}
+.scroll-toggle{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;border:1px solid var(--border);background:var(--paper);color:var(--text2);font-size:12px;cursor:pointer;white-space:nowrap}
+.scroll-toggle.on{background:#fdf0e8;color:var(--accent);border-color:var(--accent3)}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -320,7 +335,18 @@ button{font-family:inherit;cursor:pointer}
     <button class="act-btn suc" id="btn-rep" onclick="toggleRep()">＋ Repertorio</button>
     <button class="act-btn" onclick="goEdit()">✏️ Editar</button>
     <button class="act-btn" onclick="printSong()">🖨️</button>
+            <button class="act-btn" id="scroll-toggle-btn" onclick="toggleScrollBar()">⏩ Auto</button>
     <button class="act-btn dan" onclick="deleteSong()">🗑️</button>
+  </div>
+  <!-- AUTOSCROLL BAR -->
+  <div class="scroll-bar" id="scroll-bar">
+    <button class="scroll-btn play" id="scroll-play-btn" onclick="toggleScroll()">▶</button>
+    <div class="scroll-speed">
+      <label>Velocidad</label>
+      <input type="range" id="scroll-speed" min="1" max="10" value="3" oninput="updateScrollSpeed()">
+      <span class="spd-val" id="scroll-spd-val">3</span>
+    </div>
+    <button class="scroll-btn stop" onclick="hideScrollBar()" title="Cerrar">✕</button>
   </div>
   <div class="song-body" id="song-body"></div>
 </div>
@@ -522,6 +548,7 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 // SCREENS
 const SCREENS=['list','song','edit','rep'];
 function goScreen(n){
+  if(n !== 'song') stopScroll();
   SCREENS.forEach(s=>document.getElementById('scr-'+s).classList.toggle('on',s===n));
   document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('on'));
   const bnMap={list:'bn-list',rep:'bn-rep'};
@@ -1149,6 +1176,47 @@ async function doLogout(){
 
 function openUserMenu(){document.getElementById('umenu-modal').classList.add('open')}
 function closeUserMenu(){document.getElementById('umenu-modal').classList.remove('open')}
+
+// ── AUTOSCROLL ────────────────────────────────────────────────
+let scrollInterval = null;
+let scrollActive = false;
+
+function toggleScrollBar(){
+  const bar = document.getElementById('scroll-bar');
+  const btn = document.getElementById('scroll-toggle-btn');
+  if(bar.classList.contains('visible')){ hideScrollBar(); }
+  else { bar.classList.add('visible'); btn.classList.add('on'); }
+}
+function hideScrollBar(){
+  stopScroll();
+  document.getElementById('scroll-bar').classList.remove('visible');
+  document.getElementById('scroll-toggle-btn').classList.remove('on');
+}
+function toggleScroll(){
+  if(scrollActive) stopScroll(); else startScroll();
+}
+function startScroll(){
+  scrollActive = true;
+  const btn = document.getElementById('scroll-play-btn');
+  if(btn){ btn.textContent='⏸'; btn.style.background='var(--green)'; }
+  const speed = parseInt(document.getElementById('scroll-speed').value||3);
+  const px = 0.3 + (speed - 1) * 0.37;
+  scrollInterval = setInterval(()=>{
+    const main = document.querySelector('.main');
+    if(main) main.scrollBy(0, px);
+  }, 16);
+}
+function stopScroll(){
+  scrollActive = false;
+  clearInterval(scrollInterval); scrollInterval = null;
+  const btn = document.getElementById('scroll-play-btn');
+  if(btn){ btn.textContent='▶'; btn.style.background='var(--accent)'; }
+}
+function updateScrollSpeed(){
+  const val = document.getElementById('scroll-speed').value;
+  document.getElementById('scroll-spd-val').textContent = val;
+  if(scrollActive){ stopScroll(); startScroll(); }
+}
 
 function startApp(){
   load();
