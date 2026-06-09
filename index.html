@@ -1087,6 +1087,7 @@ const sbClient = window.supabase.createClient('https://hnpmromcwycnfxbppqqk.supa
 let currentUser = null;
 
 function initUser(){
+  if(!document.getElementById('auth-screen')){ document.addEventListener('DOMContentLoaded', initUser); return; }
   sbClient.auth.onAuthStateChange((event, session)=>{
     if(session && session.user){
       currentUser = session.user;
@@ -1104,13 +1105,17 @@ function initUser(){
 }
 
 function showAuthScreen(){
-  document.getElementById('auth-screen').style.display='flex';
-  document.getElementById('user-menu').style.display='none';
+  const authEl = document.getElementById('auth-screen');
+  const menuEl = document.getElementById('user-menu');
+  if(authEl) authEl.style.display='flex';
+  if(menuEl) menuEl.style.display='none';
 }
 
 function showApp(){
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('user-menu').style.display='flex';
+  const authEl = document.getElementById('auth-screen');
+  const menuEl = document.getElementById('user-menu');
+  if(authEl) authEl.style.display='none';
+  if(menuEl) menuEl.style.display='flex';
   const name = (currentUser.user_metadata && currentUser.user_metadata.name) || currentUser.email.split('@')[0];
   const ini = name[0].toUpperCase();
   document.getElementById('user-avatar').textContent=ini;
